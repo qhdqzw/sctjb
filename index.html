@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>诗词摊煎饼</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <canvas id="gridCanvas"></canvas>
+  </div>
+  <div id="inputModal" class="modal">
+    <div class="modal-content">
+<div id="poem-info-container">
+  <div class="poem-header">
+    <div id="poem_sentence"></div>
+    <div id="poem_info"></div>
+    <button id="toggle-poem-info" class="toggle-btn">▲</button>
+    <button id="show-full-poem" class="toggle-btn">显示全文</button>
+  </div>
+  <div id="full-poem-content" class="hidden">
+    <div id="full_poem"></div>
+    <div id="poem_explanation"></div>
+  </div>
+</div>
+<div id="poem-container">
+  <table id="poem-grid"></table>
+</div>
+<div id="magnifier" class="magnifier-box">
+    <div class="magnifier-content"></div>
+</div>
+<script src="https://sdk.jinrishici.com/v2/browser/jinrishici.js" charset="utf-8"></script>
+<script src="main.js" type="module"></script>
+    </div>
+  </div>
+<script type="module" src="main.js"></script>
+</body>
+<script type="module" src="main.js"></script>
+</body>
+</html>

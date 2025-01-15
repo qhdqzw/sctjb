@@ -1,0 +1,286 @@
+// 添加键盘事件监听
+document.addEventListener('keydown', function(e) {
+    // 只处理输入框元素
+    const inputElements = document.querySelectorAll('input[type="text"], input[type="password"], input[type="number"], textarea');
+    const focusedElement = document.activeElement;
+    
+    // 确保当前焦点在输入框上
+    if (!Array.from(inputElements).includes(focusedElement)) {
+        return;
+    }
+
+    // 获取所有输入框的位置信息
+    const elementPositions = Array.from(inputElements).map(input => {
+        const rect = input.getBoundingClientRect();
+        return {
+            element: input,
+            rect: rect,
+            center: {
+                x: rect.left + rect.width / 2,
+                y: rect.top + rect.height / 2
+            }
+        };
+    });
+
+    // 获取当前输入框的位置
+    const currentPos = elementPositions.find(pos => pos.element === focusedElement);
+    if (!currentPos) return;
+
+    const handleNavigation = (direction) => {
+        let nextElement = null;
+        const currentRect = currentPos.rect;
+        
+        switch(direction) {
+            case 'right':
+                // 找到同一行中右侧最近的输入框
+                nextElement = elementPositions
+                    .filter(pos => Math.abs(pos.rect.top - currentRect.top) < 10 && pos.rect.left > currentRect.left)
+                    .sort((a, b) => a.rect.left - b.rect.left)[0]?.element;
+                break;
+            case 'down':
+                // 找到下方最近的输入框
+                nextElement = elementPositions
+                    .filter(pos => Math.abs(pos.rect.left - currentRect.left) < 10 && pos.rect.top > currentRect.top)
+                    .sort((a, b) => a.rect.top - b.rect.top)[0]?.element;
+                break;
+            case 'left':
+                // 找到同一行中左侧最近的输入框
+                nextElement = elementPositions
+                    .filter(pos => Math.abs(pos.rect.top - currentRect.top) < 10 && pos.rect.left < currentRect.left)
+                    .sort((a, b) => b.rect.left - a.rect.left)[0]?.element;
+                break;
+            case 'up':
+                // 找到上方最近的输入框
+                nextElement = elementPositions
+                    .filter(pos => Math.abs(pos.rect.left - currentRect.left) < 10 && pos.rect.top < currentRect.top)
+                    .sort((a, b) => b.rect.top - a.rect.top)[0]?.element;
+                break;
+        }
+
+        // 如果找不到下一个元素，则循环到对应方向的第一个/最后一个元素
+        if (!nextElement) {
+            const sameRowCols = elementPositions.filter(pos => 
+                Math.abs(pos.rect.top - currentRect.top) < 10
+            );
+            const sameColRows = elementPositions.filter(pos => 
+                Math.abs(pos.rect.left - currentRect.left) < 10
+            );
+
+            switch(direction) {
+                case 'right':
+                    nextElement = sameRowCols[0]?.element;
+                    break;
+                case 'left':
+                    nextElement = sameRowCols[sameRowCols.length - 1]?.element;
+                    break;
+                case 'down':
+                    nextElement = sameColRows[0]?.element;
+                    break;
+                case 'up':
+                    nextElement = sameColRows[sameColRows.length - 1]?.element;
+                    break;
+            }
+        }
+
+        if (nextElement) {
+            e.preventDefault();
+            nextElement.focus();
+            nextElement.select(); // 选中输入框中的文本
+            updateMagnifier(nextElement); // 更新放大显示
+        }
+    };
+
+    // 处理按键事件
+    switch(e.key) {
+        case 'Tab':
+            e.preventDefault();
+            handleNavigation('right');
+            break;
+        case 'Enter':
+            e.preventDefault();
+            handleNavigation('down');
+            break;
+        case 'ArrowRight':
+            handleNavigation('right');
+            break;
+        case 'ArrowLeft':
+            handleNavigation('left');
+            break;
+        case 'ArrowUp':
+            handleNavigation('up');
+            break;
+        case 'ArrowDown':
+            handleNavigation('down');
+            break;
+    }
+});
+
+// 添加放大显示功能
+const magnifier = document.getElementById('magnifier');
+const magnifierContent = magnifier.querySelector('.magnifier-content');
+
+function updateMagnifier(element) {
+    if (!element) return;
+    
+    const text = element.value.trim();
+    if (text) {
+        magnifierContent.textContent = text;
+        magnifierContent.classList.remove('magnifier-empty');
+    } else {
+        magnifierContent.textContent = '当前输入框为空';
+        magnifierContent.classList.add('magnifier-empty');
+    }
+}
+
+// 监听输入框的focus事件
+document.addEventListener('focus', function(e) {
+    if (e.target.matches('input, textarea')) {
+        updateMagnifier(e.target);
+    }
+}, true);
+
+// 监听输入框的input事件，实时更新放大显示
+document.addEventListener('input', function(e) {
+    if (e.target.matches('input, textarea')) {
+        updateMagnifier(e.target);
+    }
+});
+
+// 页面加载时初始化放大显示
+document.addEventListener('DOMContentLoaded', function() {
+    const focusedElement = document.activeElement;
+    if (focusedElement.matches('input, textarea')) {
+        updateMagnifier(focusedElement);
+    }
+});
+
+// 创建提示按钮
+const createHintButton = () => {
+    const hintButton = document.createElement('button');
+    hintButton.id = 'hint-button';
+    hintButton.textContent = '提示';
+    hintButton.className = 'hint-button';
+    document.body.appendChild(hintButton);
+    
+    // 添加点击事件
+    hintButton.addEventListener('click', handleHintClick);
+};
+
+// 处理提示按钮点击
+async function handleHintClick() {
+    const selectedText = magnifierContent.textContent;
+    if (!selectedText || selectedText === '当前输入框为空') {
+        showMessage('请先选择一个格子');
+        return;
+    }
+
+    // 从本地数据搜索
+    const poems = searchLocalPoems(selectedText);
+    if (poems.length > 0) {
+        showPoemHints(poems);
+    } else {
+        showMessage('未找到相关诗句');
+    }
+}
+
+// 搜索包含指定文字的诗句
+function searchPoems(keyword) {
+    return searchLocalPoems(keyword);
+}
+
+// 显示诗句提示弹窗
+function showPoemHints(poems) {
+    // 创建弹窗元素
+    const modal = document.createElement('div');
+    modal.className = 'hint-modal';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'hint-modal-content';
+    
+    // 添加标题
+    const title = document.createElement('h3');
+    title.textContent = '相关诗句提示';
+    modalContent.appendChild(title);
+    
+    // 添加诗句列表
+    const list = document.createElement('ul');
+    poems.forEach(poem => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div class="poem-line">${poem.content}</div>
+            <div class="poem-source">${poem.origin.title} - ${poem.origin.author}</div>
+        `;
+        list.appendChild(li);
+    });
+    modalContent.appendChild(list);
+    
+    // 添加关闭按钮
+    const closeButton = document.createElement('button');
+    closeButton.className = 'close-button';
+    closeButton.textContent = '关闭';
+    closeButton.onclick = () => modal.remove();
+    modalContent.appendChild(closeButton);
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+}
+
+// 显示提示消息
+function showMessage(message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message';
+    messageDiv.textContent = message;
+    document.body.appendChild(messageDiv);
+    
+    setTimeout(() => {
+        messageDiv.remove();
+    }, 2000);
+}
+
+let localPoems = [];
+
+// 异步加载诗句数据
+async function loadPoemData() {
+    try {
+        const [tsResponse, scResponse] = await Promise.all([
+            fetch('ts.json'),
+            fetch('sc.json')
+        ]);
+        
+        const tsData = await tsResponse.json();
+        const scData = await scResponse.json();
+        
+        // 合并两个数据源
+        localPoems = [...tsData, ...scData];
+    } catch (error) {
+        console.error('加载诗句数据失败:', error);
+    }
+}
+
+// 从本地数据搜索诗句
+function searchLocalPoems(keyword) {
+    if (!localPoems.length) {
+        console.warn('诗句数据尚未加载完成');
+        return [];
+    }
+    return localPoems.filter(poem => 
+        poem.content.includes(keyword)
+    ).slice(0, 5); // 最多返回5条结果
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', async function() {
+    // 显示加载提示
+    showMessage('正在加载诗句数据...');
+    
+    try {
+        // 预加载诗句数据
+        await loadPoemData();
+        // 创建提示按钮
+        createHintButton();
+        showMessage('诗句数据加载完成');
+    } catch (error) {
+        console.error('初始化失败:', error);
+        showMessage('诗句数据加载失败');
+    }
+});
